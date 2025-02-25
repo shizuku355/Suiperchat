@@ -40,6 +40,9 @@ export default function Suiperchat() {
   const [chats, setChats] = useState<any[]>([]);
   const [isCheckingTx, setIsCheckingTx] = useState(false);
   
+  // 既存のステート変数に追加
+  const [viewerUrl, setViewerUrl] = useState('');
+  
   // QRコード画像をアップロードする関数
   const handleQrCodeUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -66,27 +69,17 @@ export default function Suiperchat() {
   };
   
   // メッセージを準備する関数
-  const prepareMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const prepareMessage = () => {
+    if (!name || !message || !streamerAddress) return;
     
-    if (!streamerAddress) {
-      alert('配信者のアドレスを入力してください');
-      return;
-    }
-    
-    if (!name || !message) {
-      alert('名前とメッセージを入力してください');
-      return;
-    }
+    // 一意の金額を生成
+    const randomDecimals = Math.floor(Math.random() * 1000); // 0-999の範囲
+    const generatedAmount = parseFloat((amount + randomDecimals / 10000).toFixed(4));
+    setExactAmount(generatedAmount);
     
     setIsLoading(true);
     
     try {
-      // 一意の金額を生成（実際のAPIコールの代わりにフロントエンドで生成）
-      const randomDigits = Math.floor(1000 + Math.random() * 9000); // 1000-9999の範囲
-      const generatedAmount = parseFloat(`${Math.floor(amount)}.${randomDigits}`);
-      setExactAmount(generatedAmount);
-      
       // ここでメッセージをローカルストレージに保存
       const newMessage = {
         id: Date.now().toString(),
@@ -296,6 +289,18 @@ export default function Suiperchat() {
     }
   }, []);
   
+  // 配信者アドレスが設定されたときにURLを生成
+  useEffect(() => {
+    if (streamerAddress) {
+      // 現在のホスト名を取得してビューアーURLを生成
+      const baseUrl = window.location.origin;
+      const url = `${baseUrl}/viewer?address=${streamerAddress}`;
+      setViewerUrl(url);
+    } else {
+      setViewerUrl('');
+    }
+  }, [streamerAddress]);
+  
   return (
     <div className={`container mx-auto px-4 py-8 max-w-4xl text-white ${roboto.className}`} style={{ backgroundColor: '#121212' }}>
       <h1 className={`text-3xl font-bold text-center mb-8 ${orbitron.className}`} style={{ color: '#E53935', letterSpacing: '2px' }}>SUIPERCHAT</h1>
@@ -504,6 +509,58 @@ export default function Suiperchat() {
           </div>
         )}
       </div>
+      
+      {/* 視聴者用URL表示セクション */}
+      {streamerAddress && (
+        <div className="mt-4 mb-6 p-4 rounded" style={{ backgroundColor: '#2A2A2A', border: '1px solid #444444' }}>
+          <h3 className={`font-bold mb-3 ${orbitron.className}`} style={{ color: '#E53935' }}>視聴者用リンク</h3>
+          <p className="mb-2" style={{ color: '#CCCCCC' }}>このリンクを視聴者に共有して、Suiperchatを受け取れるようにしましょう：</p>
+          
+          <div className="flex items-center">
+            <input
+              type="text"
+              value={viewerUrl}
+              readOnly
+              className="flex-grow p-2 border rounded-l font-mono text-sm"
+              style={{ backgroundColor: '#333333', borderColor: '#444444', color: '#FFFFFF' }}
+            />
+            <button
+              onClick={() => {
+                if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                  navigator.clipboard.writeText(viewerUrl)
+                    .then(() => alert('リンクをコピーしました'))
+                    .catch(err => console.error('コピーに失敗しました:', err));
+                } else {
+                  // フォールバック
+                  const textArea = document.createElement('textarea');
+                  textArea.value = viewerUrl;
+                  document.body.appendChild(textArea);
+                  textArea.select();
+                  document.execCommand('copy');
+                  document.body.removeChild(textArea);
+                  alert('リンクをコピーしました');
+                }
+              }}
+              className={`px-4 py-2 rounded-r font-bold ${orbitron.className}`}
+              style={{ backgroundColor: '#E53935', color: 'white' }}
+            >
+              コピー
+            </button>
+          </div>
+          
+          <div className="mt-3 flex justify-center">
+            <a
+              href={viewerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`px-4 py-2 rounded text-center ${orbitron.className}`}
+              style={{ backgroundColor: '#333333', color: '#FFFFFF', textDecoration: 'none', display: 'inline-block' }}
+            >
+              視聴者ページを開く
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
