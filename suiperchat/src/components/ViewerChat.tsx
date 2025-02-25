@@ -1,6 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Orbitron, Roboto } from 'next/font/google';
+
+// フォントの設定
+const orbitron = Orbitron({ 
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800', '900'],
+  variable: '--font-orbitron',
+});
+
+const roboto = Roboto({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '700'],
+  variable: '--font-roboto',
+});
 
 export default function ViewerChat() {
   const [streamerAddress, setStreamerAddress] = useState('');
@@ -42,52 +56,53 @@ export default function ViewerChat() {
     }
   };
   
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!streamerAddress) {
-      alert('配信者のアドレスを入力してください');
-      return;
-    }
+    // 選択された金額に、小数点以下4桁のランダム値を追加
+    const randomDecimals = Math.floor(Math.random() * 1000); // 0-999の範囲
+    const exactAmountValue = parseFloat((amount + randomDecimals / 10000).toFixed(4));
+    setExactAmount(exactAmountValue);
     
-    setIsLoading(true);
-    
-    try {
-      // メッセージをサーバーに保存
-      const response = await fetch('/api/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name,
-          message,
-          amount,
-          streamerAddress,
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('APIエラー');
-      }
-      
-      const data = await response.json();
-      setExactAmount(data.exactAmount);
-    } catch (error) {
-      console.error('メッセージ保存エラー:', error);
-      alert('メッセージの保存に失敗しました。');
-    } finally {
-      setIsLoading(false);
-    }
+    // ここで通常のフォーム送信処理など...
   };
   
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className={`max-w-2xl mx-auto ${roboto.className}`}>
       {/* 配信者情報表示 */}
       {streamerInfo && (
         <div className="bg-gray-100 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-bold mb-2">配信者情報</h2>
-          <p className="mb-2">アドレス: <span className="font-mono break-all">{streamerInfo.address}</span></p>
+          <h2 className={`text-xl font-bold mb-2 text-gray-800 ${orbitron.className}`}>配信者情報</h2>
+          <div className="flex items-center mb-2">
+            <p className="text-gray-700 mr-2">アドレス:</p>
+            <div className="flex flex-1 items-center">
+              <span className="font-mono break-all bg-gray-200 p-2 rounded text-gray-700 flex-1">
+                {streamerInfo.address}
+              </span>
+              <button
+                onClick={() => {
+                  // クリップボードAPIが利用可能かチェック
+                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                    navigator.clipboard.writeText(streamerInfo.address)
+                      .then(() => alert('アドレスをコピーしました'))
+                      .catch(err => console.error('コピーに失敗しました:', err));
+                  } else {
+                    // フォールバック方法
+                    const textArea = document.createElement('textarea');
+                    textArea.value = streamerInfo.address;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    alert('アドレスをコピーしました');
+                  }
+                }}
+                className="ml-2 bg-gray-300 hover:bg-gray-400 text-gray-700 px-2 py-1 rounded"
+              >
+                コピー
+              </button>
+            </div>
+          </div>
           
           {streamerInfo.qrCodeImage && (
             <div className="flex justify-center mb-2">
@@ -103,38 +118,65 @@ export default function ViewerChat() {
       
       {!exactAmount ? (
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-bold mb-4">Suiperchatを送信</h2>
+          <h2 className={`text-2xl font-bold mb-4 text-gray-800 border-b pb-2 ${orbitron.className}`}>Suiperchatを送信</h2>
           
           <div className="mb-4">
-            <label className="block text-gray-700 mb-2">配信者のウォレットアドレス</label>
-            <input
-              type="text"
-              value={streamerAddress}
-              onChange={(e) => setStreamerAddress(e.target.value)}
-              className="w-full p-2 border rounded"
-              placeholder="0x..."
-              required
-            />
+            <label className="block text-gray-700 font-semibold mb-2">配信者のウォレットアドレス</label>
+            <div className="flex">
+              <input
+                type="text"
+                value={streamerAddress}
+                onChange={(e) => setStreamerAddress(e.target.value)}
+                className="flex-1 p-2 border rounded-l bg-gray-100 text-gray-700 font-mono"
+                placeholder="0x..."
+                required
+              />
+              {streamerAddress && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // クリップボードAPIが利用可能かチェック
+                    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                      navigator.clipboard.writeText(streamerAddress)
+                        .then(() => alert('アドレスをコピーしました'))
+                        .catch(err => console.error('コピーに失敗しました:', err));
+                    } else {
+                      // フォールバック方法
+                      const textArea = document.createElement('textarea');
+                      textArea.value = streamerAddress;
+                      document.body.appendChild(textArea);
+                      textArea.select();
+                      document.execCommand('copy');
+                      document.body.removeChild(textArea);
+                      alert('アドレスをコピーしました');
+                    }
+                  }}
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-3 rounded-r"
+                >
+                  コピー
+                </button>
+              )}
+            </div>
           </div>
           
           <div className="mb-4">
-            <label className="block text-gray-700 mb-2">表示名</label>
+            <label className="block text-gray-700 font-semibold mb-2">表示名</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full p-2 border rounded"
+              className="w-full p-2 border rounded text-black"
               placeholder="あなたの名前"
               required
             />
           </div>
           
           <div className="mb-4">
-            <label className="block text-gray-700 mb-2">メッセージ</label>
+            <label className="block text-gray-700 font-semibold mb-2">メッセージ</label>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              className="w-full p-2 border rounded"
+              className="w-full p-2 border rounded text-black"
               rows={3}
               placeholder="メッセージを入力"
               required
@@ -142,11 +184,11 @@ export default function ViewerChat() {
           </div>
           
           <div className="mb-6">
-            <label className="block text-gray-700 mb-2">金額 (SUI)</label>
+            <label className="block text-gray-700 font-semibold mb-2">金額 (SUI)</label>
             <select
               value={amount}
               onChange={(e) => setAmount(parseFloat(e.target.value))}
-              className="w-full p-2 border rounded"
+              className="w-full p-2 border rounded text-black"
             >
               <option value={0.1}>0.1 SUI</option>
               <option value={0.5}>0.5 SUI</option>
@@ -160,51 +202,35 @@ export default function ViewerChat() {
           
           <button
             type="submit"
-            className="w-full bg-blue-500 text-white p-3 rounded font-bold hover:bg-blue-600"
+            className={`w-full bg-blue-500 text-white p-3 rounded font-bold hover:bg-blue-600 ${orbitron.className}`}
             disabled={isLoading}
           >
             {isLoading ? '処理中...' : 'メッセージを準備する'}
           </button>
         </form>
       ) : (
-        <div className="p-4 border rounded bg-gray-50">
-          <h3 className="font-bold text-lg mb-2">送金手順</h3>
-          <p className="mb-4">以下の手順でSuiperchatを完了させてください：</p>
-          <ol className="list-decimal pl-5 space-y-2">
-            <li>お好みのSuiウォレットを開く</li>
-            <li>以下のアドレスに<strong className="text-red-500">{exactAmount.toFixed(4)} SUI</strong>を送金：<br />
-              <code className="bg-gray-200 p-1 rounded break-all">{streamerAddress}</code>
-            </li>
-            <li className="text-red-500 font-bold">
-              重要: 必ず正確に{exactAmount.toFixed(4)} SUIを送金してください
-            </li>
-            <li>送金が完了すると、あなたのメッセージが配信者に表示されます</li>
-          </ol>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className={`text-2xl font-bold mb-4 text-gray-800 border-b pb-2 ${orbitron.className}`}>送金手順</h2>
           
-          <div className="bg-yellow-50 border border-yellow-200 p-3 rounded mt-4 mb-4">
-            <h4 className="font-bold text-yellow-800 mb-1">なぜ複雑な金額なのか？</h4>
-            <p className="text-sm text-yellow-800">
-              Suiウォレットにはメッセージ欄がないため、<strong>金額自体をメッセージIDとして使用</strong>しています。
-              例えば「0.3425 SUI」のような複雑な金額を使うことで、あなたのメッセージを正確に識別できます。
-              金額を変更すると、メッセージが配信者に届かなくなる可能性があるのでご注意ください。
-            </p>
-          </div>
-          
-          <div className="mt-4 flex justify-center gap-2">
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(exactAmount.toFixed(4));
-                alert('金額をコピーしました');
-              }}
-              className="bg-gray-200 px-3 py-1 rounded hover:bg-gray-300"
-            >
-              金額をコピー
-            </button>
+          <div className="mb-6">
+            <div className="mb-4 text-black">
+              <p className="mb-2">以下の情報を使って、お使いのウォレットから送金してください：</p>
+              <ul className="list-disc pl-5 mb-3">
+                <li>送金先アドレス: <span className="font-mono break-all bg-gray-100 p-1 rounded">{streamerAddress}</span></li>
+                <li>金額: <span className="font-bold text-red-600">{exactAmount} SUI</span></li>
+              </ul>
+              <div className="bg-gray-100 p-3 rounded mb-3 border-l-4 border-red-500">
+                <p className="font-bold mb-2">重要：</p>
+                <p>表示されている<strong>正確な金額</strong>で送金してください。この特定の金額がメッセージとあなたの送金を紐付けるために使用されます。</p>
+              </div>
+              <p>送金が完了すると、配信者に表示名とメッセージが表示されます。</p>
+            </div>
+            
             <button
               onClick={() => setExactAmount(null)}
-              className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+              className={`w-full bg-gray-300 text-gray-700 p-3 rounded font-bold hover:bg-gray-400 ${orbitron.className}`}
             >
-              新しいメッセージを作成
+              入力画面に戻る
             </button>
           </div>
         </div>
