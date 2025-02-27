@@ -1,0 +1,84 @@
+import { NextResponse } from 'next/server';
+import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
+import { messages, amountIndex } from '../messages/route';
+
+// Sui クライアントの初期化
+const client = new SuiClient({ url: getFullnodeUrl('testnet') });
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const address = searchParams.get('address');
+    
+    if (!address) {
+      return NextResponse.json({ error: 'アドレスは必須です' }, { status: 400 });
+    }
+    
+    // 最新の100件のトランザクションを取得
+    const txs = await client.queryTransactionBlocks({
+      filter: {
+        ToAddress: address
+      },
+      options: {
+        showInput: true,
+        showEffects: true,
+        showEvents: true
+      },
+      limit: 100
+    });
+    
+    const confirmedMessages: any[] = [];
+    
+    // トランザクションを処理
+    for (const tx of txs.data) {
+      try {
+        // トランザクションの詳細を取得
+        if (!tx.effects?.events) continue;
+        
+        // コイン送金イベントを探す
+        const coinEvents = tx.effects.events.filter(event => 
+          event.type.includes('CoinBalanceChange')
+        );
+        
+        for (const event of coinEvents) {
+          if (event.parsedJson && event.parsedJson.amount) {
+            // 金額を取得（文字列から数値に変換）
+            const amountStr = event.parsedJson.amount;
+            const amount = parseFloat(amountStr) / 1_000_000_000; // SUIの単位変換
+            
+            // 金額を4桁の精度で丸める（インデックスと一致させるため）
+            const amountKey = amount.toFixed(4);
+            
+            // この金額に一致するメッセージを探す
+            const messageId = amountIndex[amountKey];
+            if (messageId && messages[messageId] && !messages[messageId].confirmed) {
+              // メッセージを確認済みにする
+              messages[messageId].confirmed = true;
+              messages[messageId].txDigest = tx.digest;
+              
+              // 確認されたメッセージを返す配列に追加
+              confirmedMessages.push({
+                id: messages[messageId].id,
+                name: messages[messageId].name,
+                message: messages[messageId].message,
+                amount: messages[messageId].amount,
+                txDigest: tx.digest,
+                timestamp: messages[messageId].timestamp
+              });
+              
+              console.log(`メッセージを確認しました: ${messageId}, 金額: ${amountKey}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('トランザクション処理エラー:', error);
+      }
+    }
+    
+    // 配信者のアドレス宛の確認済みメッセージを返す
+    return NextResponse.json(confirmedMessages);
+  } catch (error) {
+    console.error('トランザクション確認エラー:', error);
+    return NextResponse.json({ error: '内部サーバーエラー' }, { status: 500 });
+  }
+}
